@@ -27,7 +27,7 @@ struct px4_device_param_set px4_device_params = {
 	.disable_multi_device_power_control = false,
 	.multi_device_power_control_mode = PX4_MLDEV_ALL_MODE,
 	.s_tuner_no_sleep = false,
-	.discard_null_packets = false
+	.discard_null_packets = true
 };
 
 static int set_multi_device_power_control_mode(const char *val,
