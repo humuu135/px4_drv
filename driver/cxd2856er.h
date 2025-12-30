@@ -60,6 +60,9 @@ struct cxd2856er_demod {
 	/* ISDB-C と J.83B の起動は、途中で失敗しても停止で既定値へ戻せるよう、先に起動中の状態にする
 	 * その起動が最後まで終わっていないと、同じ方式の選局し直しで済ませずに、停止してから起動し直す */
 	bool cable_wakeup_incomplete;
+	/* BER */
+	unsigned long long error_bit_count;
+	unsigned long long total_bit_count;
 };
 
 #ifdef __cplusplus
@@ -154,6 +157,8 @@ int cxd2856er_is_ts_locked_isdbc(struct cxd2856er_demod *demod, bool *locked);
 int cxd2856er_read_cnr_raw_isdbt(struct cxd2856er_demod *demod, u16 *value);
 int cxd2856er_read_cnr_raw_isdbs(struct cxd2856er_demod *demod, u16 *value);
 int cxd2856er_read_cnr_raw_isdbc(struct cxd2856er_demod *demod, u16 *value);
+int cxd2856er_read_ber_isdbt(struct cxd2856er_demod *demod, unsigned long long *error_bit_count, unsigned long long *total_bit_count);
+int cxd2856er_read_ber_isdbs(struct cxd2856er_demod *demod, unsigned long long *error_bit_count, unsigned long long *total_bit_count);
 #ifdef __cplusplus
 }
 #endif
