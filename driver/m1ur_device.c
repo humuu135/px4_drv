@@ -846,7 +846,8 @@ static struct ptx_chrdev_operations m1ur_chrdev_ops = {
 	.set_capture = m1ur_chrdev_set_capture,
 	.read_signal_strength = NULL,
 	.read_cnr = NULL,
-	.read_cnr_raw = m1ur_chrdev_read_cnr_raw
+	.read_cnr_raw = m1ur_chrdev_read_cnr_raw,
+	.read_ber = NULL
 };
 
 static int m1ur_device_load_config(struct m1ur_device *m1ur,

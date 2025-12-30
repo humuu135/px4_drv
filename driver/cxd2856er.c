@@ -124,6 +124,9 @@ int cxd2856er_init(struct cxd2856er_demod *demod)
 	demod->state = CXD2856ER_UNKNOWN_STATE;
 	demod->system = CXD2856ER_UNSPECIFIED_SYSTEM;
 
+	demod->error_bit_count = 0;
+	demod->total_bit_count = 0;
+
 	ret = cxd2856er_write_slvx_reg(demod, 0x00, 0x00);
 	if (ret)
 		return ret;
@@ -1008,6 +1011,9 @@ int cxd2856er_post_tune(struct cxd2856er_demod *demod)
 	if (ret)
 		return ret;
 
+	demod->error_bit_count = 0;
+	demod->total_bit_count = 0;
+
 	return 0;
 }
 
@@ -1089,6 +1095,18 @@ int cxd2856er_is_ts_locked_isdbs(struct cxd2856er_demod *demod, bool *locked)
 	return 0;
 }
 
+static int cxd2856er_freeze_regs(struct cxd2856er_demod *demod)
+{
+	cxd2856er_write_slvt_reg(demod, 0x01, 0x01);
+	return 0;
+}
+
+static int cxd2856er_unfreeze_regs(struct cxd2856er_demod *demod)
+{
+	cxd2856er_write_slvt_reg(demod, 0x01, 0x00);
+	return 0;
+}
+
 int cxd2856er_read_cnr_raw_isdbt(struct cxd2856er_demod *demod, u16 *value)
 {
 	int ret = 0;
@@ -1096,9 +1114,7 @@ int cxd2856er_read_cnr_raw_isdbt(struct cxd2856er_demod *demod, u16 *value)
 
 	*value = 0;
 
-	ret = cxd2856er_write_slvt_reg(demod, 0x01, 0x01);
-	if (ret)
-		return ret;
+	cxd2856er_freeze_regs(demod);
 
 	ret = cxd2856er_write_slvt_reg(demod, 0x00, 0x60);
 	if (ret)
@@ -1108,9 +1124,7 @@ int cxd2856er_read_cnr_raw_isdbt(struct cxd2856er_demod *demod, u16 *value)
 	if (ret)
 		return ret;
 
-	ret = cxd2856er_write_slvt_reg(demod, 0x01, 0x00);
-	if (ret)
-		return ret;
+	cxd2856er_unfreeze_regs(demod);
 
 	*value = (tmp[0] << 8) | tmp[1];
 
@@ -1124,6 +1138,8 @@ int cxd2856er_read_cnr_raw_isdbs(struct cxd2856er_demod *demod, u16 *value)
 
 	*value = 0;
 
+	cxd2856er_freeze_regs(demod);
+
 	ret = cxd2856er_write_slvt_reg(demod, 0x00, 0xa1);
 	if (ret)
 		return ret;
@@ -1132,10 +1148,122 @@ int cxd2856er_read_cnr_raw_isdbs(struct cxd2856er_demod *demod, u16 *value)
 	if (ret)
 		return ret;
 
+	cxd2856er_unfreeze_regs(demod);
+
 	if (tmp[0] & 0x01)
 		*value = ((tmp[1] << 8) & 0x1f) | tmp[2];
 	else
 		*value = 0x5af;
+
+	return 0;
+}
+
+int cxd2856er_read_ber_isdbt(struct cxd2856er_demod *demod, unsigned long long *error_bit_count, unsigned long long *total_bit_count)
+{
+	int ret = 0;
+	u8 data1[1];
+	u8 data2[2];
+	//u8 data3[3];
+	u8 pktnum[2];
+	u32 read_error_bit_count = 0;
+
+	cxd2856er_freeze_regs(demod);
+
+	ret = cxd2856er_write_slvt_reg(demod, 0x00, 0x60);
+	if (ret)
+		return ret;
+
+	ret = cxd2856er_read_slvt_regs(demod, 0x5B, pktnum, sizeof(pktnum));
+	if (ret)
+		return ret;
+
+	// bit errors ?
+	//ret = cxd2856er_read_slvt_regs(demod, 0x16, data3, sizeof(data3));
+	//if (ret)
+	//	return ret;
+
+	// packet errors
+	ret = cxd2856er_read_slvt_regs(demod, 0xA1, data1, sizeof(data1));
+	if (ret)
+		return ret;
+	if ((data1[0] & 0x01)) {
+		// Layer A (oneseg)
+		//ret = cxd2856er_read_slvt_regs(demod, 0xA2, data2, sizeof(data2));
+		//if (ret)
+		//	return ret;
+		//read_error_bit_count += ((u32)data2[0] << 8) | (u32)data2[1];
+		// Layer B (fullseg)
+		ret = cxd2856er_read_slvt_regs(demod, 0xA4, data2, sizeof(data2));
+		if (ret)
+			return ret;
+		read_error_bit_count += ((u32)data2[0] << 8) | (u32)data2[1];
+		// Layer C (reserve)
+		//ret = cxd2856er_read_slvt_regs(demod, 0xA6, data2, sizeof(data2));
+		//if (ret)
+		//	return ret;
+		//read_error_bit_count += ((u32)data2[0] << 8) | (u32)data2[1];
+	}
+
+	cxd2856er_unfreeze_regs(demod);
+
+	if (!pktnum[0] && !pktnum[1]) {
+		return -EINVAL;
+	}
+
+	//read_error_bit_count = ((u32)(data3[0] & 0x7F) << 16) |
+	//	((u32)data3[1] << 8) | data3[2];
+	u32 read_total_bit_count = ((((u32)pktnum[0] << 8) | pktnum[1]) * 204 * 8);
+	if (read_error_bit_count > read_total_bit_count) {
+		return -EINVAL;
+	}
+	demod->error_bit_count += read_error_bit_count;
+	demod->total_bit_count += read_total_bit_count;
+	*error_bit_count = demod->error_bit_count;
+	*total_bit_count = demod->total_bit_count;
+
+	return 0;
+}
+
+int cxd2856er_read_ber_isdbs(struct cxd2856er_demod *demod, unsigned long long *error_bit_count, unsigned long long *total_bit_count)
+{
+	int ret = 0;
+	u8 data[4];
+	u8 pktnum[2];
+
+	cxd2856er_freeze_regs(demod);
+
+	ret = cxd2856er_write_slvt_reg(demod, 0x00, 0x60);
+	if (ret)
+		return ret;
+
+	ret = cxd2856er_read_slvt_regs(demod, 0x5B, pktnum, sizeof(pktnum));
+	if (ret)
+		return ret;
+
+	ret = cxd2856er_write_slvt_reg(demod, 0x00, 0xc0);
+	if (ret)
+		return ret;
+
+	ret = cxd2856er_read_slvt_regs(demod, 0x4E, data, sizeof(data));
+	if (ret)
+		return ret;
+
+	cxd2856er_unfreeze_regs(demod);
+
+	if (!pktnum[0] && !pktnum[1]) {
+		return -EINVAL;
+	}
+
+	u32 read_error_bit_count = ((u32)(data[0] & 0x0F) << 24) | ((u32)(data[1] & 0xFF) << 16) |
+		((u32)data[2] << 8) | data[3];
+	u32 read_total_bit_count = ((((u32)pktnum[0] << 8) | pktnum[1]) * 204 * 8);
+	if (read_error_bit_count > read_total_bit_count) {
+		return -EINVAL;
+	}
+	demod->error_bit_count += read_error_bit_count;
+	demod->total_bit_count += read_total_bit_count;
+	*error_bit_count = demod->error_bit_count;
+	*total_bit_count = demod->total_bit_count;
 
 	return 0;
 }

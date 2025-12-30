@@ -836,6 +836,37 @@ static int pxmlt_chrdev_read_cnr_raw(struct ptx_chrdev *chrdev, u32 *value)
 	return ret;
 }
 
+static int pxmlt_chrdev_read_ber(struct ptx_chrdev *chrdev, struct ptx_ber *value)
+{
+	int ret = 0;
+	struct pxmlt_chrdev *chrdevm = chrdev->priv;
+	unsigned long long error_bit_count = 0;
+	unsigned long long total_bit_count = 0;
+
+	switch (chrdev->current_system) {
+	case PTX_ISDB_T_SYSTEM:
+	{
+		ret = cxd2856er_read_ber_isdbt(&chrdevm->cxd2856er, &error_bit_count, &total_bit_count);
+		break;
+	}
+
+	case PTX_ISDB_S_SYSTEM:
+	{
+		ret = cxd2856er_read_ber_isdbs(&chrdevm->cxd2856er, &error_bit_count, &total_bit_count);
+		break;
+	}
+
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	value->error_bit_count = error_bit_count;
+	value->total_bit_count = total_bit_count;
+
+	return ret;
+}
+
 static struct ptx_chrdev_operations pxmlt_chrdev_ops = {
 	.init = pxmlt_chrdev_init,
 	.term = pxmlt_chrdev_term,
@@ -848,7 +879,8 @@ static struct ptx_chrdev_operations pxmlt_chrdev_ops = {
 	.set_capture = pxmlt_chrdev_set_capture,
 	.read_signal_strength = NULL,
 	.read_cnr = NULL,
-	.read_cnr_raw = pxmlt_chrdev_read_cnr_raw
+	.read_cnr_raw = pxmlt_chrdev_read_cnr_raw,
+	.read_ber = pxmlt_chrdev_read_ber
 };
 
 static const struct {

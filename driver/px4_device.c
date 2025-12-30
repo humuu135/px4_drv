@@ -1048,7 +1048,8 @@ static struct ptx_chrdev_operations px4_chrdev_t_ops = {
 	.set_capture = px4_chrdev_set_capture,
 	.read_signal_strength = NULL,
 	.read_cnr = NULL,
-	.read_cnr_raw = px4_chrdev_read_cnr_raw_t
+	.read_cnr_raw = px4_chrdev_read_cnr_raw_t,
+	.read_ber = NULL
 };
 
 static struct ptx_chrdev_operations px4_chrdev_s_ops = {
@@ -1063,7 +1064,8 @@ static struct ptx_chrdev_operations px4_chrdev_s_ops = {
 	.set_capture = px4_chrdev_set_capture,
 	.read_signal_strength = NULL,
 	.read_cnr = NULL,
-	.read_cnr_raw = px4_chrdev_read_cnr_raw_s
+	.read_cnr_raw = px4_chrdev_read_cnr_raw_s,
+	.read_ber = NULL
 };
 
 static int px4_parse_serial_number(struct px4_serial_number *serial,

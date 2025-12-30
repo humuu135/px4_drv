@@ -469,6 +469,27 @@ static long ptx_chrdev_unlocked_ioctl(struct file *file,
 
 		break;
 
+	case PTX_GET_BER:
+	{
+		struct ptx_ber ptx_ber = {
+			.error_bit_count = 0,
+			.total_bit_count = 0
+		};
+
+		if (chrdev->ops && chrdev->ops->read_ber)
+			ret = chrdev->ops->read_ber(chrdev, &ptx_ber);
+		else
+			ret = -ENOSYS;
+
+		if (ret)
+			break;
+
+		if (copy_to_user((void *)arg, &ptx_ber, sizeof(ptx_ber)))
+			ret = -EFAULT;
+
+		break;
+	}
+
 	case PTX_SET_SYSTEM_MODE:
 	{
 		enum ptx_system_type mode = (enum ptx_system_type)arg;

@@ -880,7 +880,8 @@ static struct ptx_chrdev_operations isdb2056_chrdev_ops = {
 	.set_capture = isdb2056_chrdev_set_capture,
 	.read_signal_strength = NULL,
 	.read_cnr = NULL,
-	.read_cnr_raw = isdb2056_chrdev_read_cnr_raw
+	.read_cnr_raw = isdb2056_chrdev_read_cnr_raw,
+	.read_ber = NULL
 };
 
 static int isdb2056_device_load_config(struct isdb2056_device *isdb2056,
